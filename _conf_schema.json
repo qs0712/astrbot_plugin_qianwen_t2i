@@ -1,0 +1,91 @@
+{
+  "provider": {
+    "description": "文生图服务商",
+    "type": "string",
+    "default": "dashscope",
+    "options": [
+      "dashscope",
+      "seedream"
+    ]
+  },
+  "dashscope_base_url": {
+    "description": "百炼文生图 API 地址",
+    "type": "string",
+    "hint": "默认使用 multimodal-generation 同步端点，无需异步轮询",
+    "default": "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation"
+  },
+  "dashscope_api_key": {
+    "description": "阿里云百炼 DashScope API Key",
+    "type": "string",
+    "default": "",
+    "obvious_hint": true
+  },
+  "dashscope_model": {
+    "description": "百炼模型名称",
+    "type": "string",
+    "default": "qwen-image-2.0-pro",
+    "options": [
+      "qwen-image-2.0-pro",
+      "qwen-image-2.0",
+      "qwen-image-plus",
+      "wan2.6-t2i",
+      "wanx-v1"
+    ]
+  },
+  "dashscope_size": {
+    "description": "百炼输出尺寸",
+    "type": "string",
+    "default": "1024*1024"
+  },
+  "dashscope_n": {
+    "description": "百炼每次生成张数",
+    "type": "int",
+    "default": 1,
+    "slider": {
+      "min": 1,
+      "max": 4,
+      "step": 1
+    }
+  },
+  "seedream_base_url": {
+    "description": "豆包 Seedream API 地址",
+    "type": "string",
+    "default": "https://ark.cn-beijing.volces.com/api/v3/images/generations"
+  },
+  "seedream_api_key": {
+    "description": "豆包 Seedream API Key（火山引擎 Ark）",
+    "type": "string",
+    "default": "",
+    "obvious_hint": true
+  },
+  "seedream_model": {
+    "description": "Seedream 模型名称",
+    "type": "string",
+    "default": "doubao-seedream-4.0"
+  },
+  "seedream_size": {
+    "description": "Seedream 输出尺寸",
+    "type": "string",
+    "default": "1024x1024"
+  },
+  "seedream_n": {
+    "description": "Seedream 每次生成张数",
+    "type": "int",
+    "default": 1,
+    "slider": {
+      "min": 1,
+      "max": 4,
+      "step": 1
+    }
+  },
+  "timeout": {
+    "description": "请求超时(秒)",
+    "type": "int",
+    "default": 120,
+    "slider": {
+      "min": 15,
+      "max": 600,
+      "step": 5
+    }
+  }
+}

@@ -1,0 +1,13 @@
+name: astrbot_plugin_qianwen_t2i
+display_name: 千文生图
+desc: >
+  自然语言文生图插件，支持阿里云百炼 DashScope / 豆包 Seedream。
+  直接用自然语言触发，无需记忆任何指令。
+  所有 API 地址均可手动配置。
+version: 1.0.0
+author: solo
+astrbot_version: ">=4.16.0,<5"
+support_platforms:
+  - aiocqhttp
+  - weixin_oc
+repo: https://github.com/solo/astrbot_plugin_qianwen_t2i
