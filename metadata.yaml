@@ -10,4 +10,4 @@ astrbot_version: ">=4.16.0,<5"
 support_platforms:
   - aiocqhttp
   - weixin_oc
-repo: https://github.com/solo/astrbot_plugin_qianwen_t2i
+repo: https://github.com/qs0712/astrbot_plugin_qianwen_t2i
