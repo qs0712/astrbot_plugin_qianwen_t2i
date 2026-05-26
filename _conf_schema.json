@@ -33,10 +33,10 @@
     ]
   },
   "dashscope_size": {
-    "description": "百炼默认输出尺寸（16:9）",
+    "description": "百炼默认输出尺寸（4:3=2048*1536）",
     "type": "string",
-    "hint": "用户可在 prompt 中用 \"16:9\" / \"1:1\" 等比例关键词动态覆盖",
-    "default": "2048*1152"
+    "hint": "格式必须用 * 号分隔。提示词中的比例关键词（如 16:9）优先级高于此配置",
+    "default": "2048*1536"
   },
   "dashscope_n": {
     "description": "百炼每次生成张数",
@@ -76,10 +76,10 @@
     "default": "doubao-seedream-4.0"
   },
   "seedream_size": {
-    "description": "Seedream 默认输出尺寸（16:9）",
+    "description": "Seedream 默认输出尺寸（4:3=2048x1536）",
     "type": "string",
-    "hint": "用户可在 prompt 中用 \"16:9\" / \"1:1\" 等比例关键词动态覆盖",
-    "default": "2048x1152"
+    "hint": "格式必须用 x 号分隔。提示词中的比例关键词优先级高于此配置",
+    "default": "2048x1536"
   },
   "seedream_n": {
     "description": "Seedream 每次生成张数",

@@ -4,8 +4,8 @@ desc: >
   自然语言文生图插件，支持阿里云百炼 DashScope / 豆包 Seedream。
   直接用自然语言触发，无需记忆任何指令。
   所有 API 地址均可手动配置。
-version: 1.0.0
-author: solo
+version: 1.1.0
+author: 吃不饱的小乔
 astrbot_version: ">=4.16.0,<5"
 support_platforms:
   - aiocqhttp

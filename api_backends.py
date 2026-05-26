@@ -1,5 +1,6 @@
 import json
 import random
+import re
 from typing import Optional, Tuple
 
 import aiohttp
@@ -34,7 +35,7 @@ class DashScopeBackend:
         api_key: str,
         base_url: str = "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation",
         model: str = "qwen-image-2.0-pro",
-        size: str = "2048*1152",
+        size: str = "2048*1536",
         n: int = 1,
         seed: int = 0,
         timeout: int = 120,
@@ -42,10 +43,14 @@ class DashScopeBackend:
         self.api_key = api_key
         self.base_url = base_url
         self.model = model
-        self.size = size
+        self.size = self._sanitize_size(size)
         self.n = n
         self.seed = seed
         self.timeout = timeout
+
+    @staticmethod
+    def _sanitize_size(size: str) -> str:
+        return re.sub(r"\s+", "", size).replace("x", "*").replace("X", "*")
 
     async def generate(
         self, prompt: str, seed: Optional[int] = None, size: Optional[str] = None
@@ -54,7 +59,9 @@ class DashScopeBackend:
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }
-        params = {"size": size or self.size, "n": self.n}
+        final_size = size or self.size
+        final_size = self._sanitize_size(final_size)
+        params = {"size": final_size, "n": self.n}
 
         effective_seed = seed
         if effective_seed is None:
@@ -123,7 +130,7 @@ class SeedreamBackend:
         api_key: str,
         base_url: str = "https://ark.cn-beijing.volces.com/api/v3/images/generations",
         model: str = "doubao-seedream-4.0",
-        size: str = "2048x1152",
+        size: str = "2048x1536",
         n: int = 1,
         seed: int = 0,
         timeout: int = 120,
@@ -131,10 +138,14 @@ class SeedreamBackend:
         self.api_key = api_key
         self.base_url = base_url
         self.model = model
-        self.size = size
+        self.size = self._sanitize_size(size)
         self.n = n
         self.seed = seed
         self.timeout = timeout
+
+    @staticmethod
+    def _sanitize_size(size: str) -> str:
+        return re.sub(r"\s+", "", size).replace("*", "x")
 
     async def generate(
         self, prompt: str, seed: Optional[int] = None, size: Optional[str] = None
@@ -143,10 +154,12 @@ class SeedreamBackend:
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }
+        final_size = size or self.size
+        final_size = self._sanitize_size(final_size)
         payload = {
             "model": self.model,
             "prompt": prompt,
-            "size": size or self.size,
+            "size": final_size,
             "n": self.n,
         }
 
@@ -194,7 +207,7 @@ def create_backend(config: dict):
                 "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation",
             ),
             model=config.get("dashscope_model", "qwen-image-2.0-pro"),
-            size=config.get("dashscope_size", "2048*1152"),
+            size=config.get("dashscope_size", "2048*1536"),
             n=int(config.get("dashscope_n", 1)),
             seed=int(config.get("dashscope_seed", 0)),
             timeout=int(config.get("timeout", 120)),
@@ -207,7 +220,7 @@ def create_backend(config: dict):
                 "https://ark.cn-beijing.volces.com/api/v3/images/generations",
             ),
             model=config.get("seedream_model", "doubao-seedream-4.0"),
-            size=config.get("seedream_size", "2048x1152"),
+            size=config.get("seedream_size", "2048x1536"),
             n=int(config.get("seedream_n", 1)),
             seed=int(config.get("seedream_seed", 0)),
             timeout=int(config.get("timeout", 120)),
