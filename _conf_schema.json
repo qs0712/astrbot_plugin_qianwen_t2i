@@ -11,7 +11,7 @@
   "dashscope_base_url": {
     "description": "百炼文生图 API 地址",
     "type": "string",
-    "hint": "默认使用 multimodal-generation 同步端点，无需异步轮询",
+    "hint": "默认使用 multimodal-generation 同步端点",
     "default": "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation"
   },
   "dashscope_api_key": {
@@ -33,9 +33,10 @@
     ]
   },
   "dashscope_size": {
-    "description": "百炼输出尺寸",
+    "description": "百炼默认输出尺寸（16:9）",
     "type": "string",
-    "default": "1024*1024"
+    "hint": "用户可在 prompt 中用 \"16:9\" / \"1:1\" 等比例关键词动态覆盖",
+    "default": "2048*1152"
   },
   "dashscope_n": {
     "description": "百炼每次生成张数",
@@ -44,6 +45,17 @@
     "slider": {
       "min": 1,
       "max": 4,
+      "step": 1
+    }
+  },
+  "dashscope_seed": {
+    "description": "百炼随机种子（0=每次随机）",
+    "type": "int",
+    "hint": "设 0 则每次调用自动生成随机种子，避免图片雷同；设固定值则每次输出一致",
+    "default": 0,
+    "slider": {
+      "min": 0,
+      "max": 2147483647,
       "step": 1
     }
   },
@@ -64,9 +76,10 @@
     "default": "doubao-seedream-4.0"
   },
   "seedream_size": {
-    "description": "Seedream 输出尺寸",
+    "description": "Seedream 默认输出尺寸（16:9）",
     "type": "string",
-    "default": "1024x1024"
+    "hint": "用户可在 prompt 中用 \"16:9\" / \"1:1\" 等比例关键词动态覆盖",
+    "default": "2048x1152"
   },
   "seedream_n": {
     "description": "Seedream 每次生成张数",
@@ -75,6 +88,17 @@
     "slider": {
       "min": 1,
       "max": 4,
+      "step": 1
+    }
+  },
+  "seedream_seed": {
+    "description": "Seedream 随机种子（0=每次随机）",
+    "type": "int",
+    "hint": "设 0 则每次调用自动生成随机种子，避免图片雷同",
+    "default": 0,
+    "slider": {
+      "min": 0,
+      "max": 2147483647,
       "step": 1
     }
   },

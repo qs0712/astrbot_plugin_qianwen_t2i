@@ -1,7 +1,31 @@
 import json
+import random
 from typing import Optional, Tuple
 
 import aiohttp
+
+
+RATIO_MAP_DASHSCOPE = {
+    "1:1": "1024*1024",
+    "16:9": "2048*1152",
+    "9:16": "1152*2048",
+    "4:3": "2048*1536",
+    "3:4": "1536*2048",
+    "3:2": "2048*1360",
+    "2:3": "1360*2048",
+    "21:9": "2048*896",
+}
+
+RATIO_MAP_SEEDREAM = {
+    "1:1": "1024x1024",
+    "16:9": "2048x1152",
+    "9:16": "1152x2048",
+    "4:3": "2048x1536",
+    "3:4": "1536x2048",
+    "3:2": "2048x1360",
+    "2:3": "1360x2048",
+    "21:9": "2048x896",
+}
 
 
 class DashScopeBackend:
@@ -10,8 +34,9 @@ class DashScopeBackend:
         api_key: str,
         base_url: str = "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation",
         model: str = "qwen-image-2.0-pro",
-        size: str = "1024*1024",
+        size: str = "2048*1152",
         n: int = 1,
+        seed: int = 0,
         timeout: int = 120,
     ):
         self.api_key = api_key
@@ -19,13 +44,26 @@ class DashScopeBackend:
         self.model = model
         self.size = size
         self.n = n
+        self.seed = seed
         self.timeout = timeout
 
-    async def generate(self, prompt: str) -> Tuple[bool, Optional[str]]:
+    async def generate(
+        self, prompt: str, seed: Optional[int] = None, size: Optional[str] = None
+    ) -> Tuple[bool, Optional[str]]:
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }
+        params = {"size": size or self.size, "n": self.n}
+
+        effective_seed = seed
+        if effective_seed is None:
+            effective_seed = self.seed
+        if effective_seed == 0:
+            effective_seed = random.randint(1, 2147483647)
+        if effective_seed:
+            params["seed"] = effective_seed
+
         payload = {
             "model": self.model,
             "input": {
@@ -36,7 +74,7 @@ class DashScopeBackend:
                     }
                 ]
             },
-            "parameters": {"size": self.size, "n": self.n},
+            "parameters": params,
         }
 
         try:
@@ -85,8 +123,9 @@ class SeedreamBackend:
         api_key: str,
         base_url: str = "https://ark.cn-beijing.volces.com/api/v3/images/generations",
         model: str = "doubao-seedream-4.0",
-        size: str = "1024x1024",
+        size: str = "2048x1152",
         n: int = 1,
+        seed: int = 0,
         timeout: int = 120,
     ):
         self.api_key = api_key
@@ -94,9 +133,12 @@ class SeedreamBackend:
         self.model = model
         self.size = size
         self.n = n
+        self.seed = seed
         self.timeout = timeout
 
-    async def generate(self, prompt: str) -> Tuple[bool, Optional[str]]:
+    async def generate(
+        self, prompt: str, seed: Optional[int] = None, size: Optional[str] = None
+    ) -> Tuple[bool, Optional[str]]:
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -104,9 +146,17 @@ class SeedreamBackend:
         payload = {
             "model": self.model,
             "prompt": prompt,
-            "size": self.size,
+            "size": size or self.size,
             "n": self.n,
         }
+
+        effective_seed = seed
+        if effective_seed is None:
+            effective_seed = self.seed
+        if effective_seed == 0:
+            effective_seed = random.randint(1, 2147483647)
+        if effective_seed:
+            payload["seed"] = effective_seed
 
         try:
             async with aiohttp.ClientSession(
@@ -144,8 +194,9 @@ def create_backend(config: dict):
                 "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation",
             ),
             model=config.get("dashscope_model", "qwen-image-2.0-pro"),
-            size=config.get("dashscope_size", "1024*1024"),
+            size=config.get("dashscope_size", "2048*1152"),
             n=int(config.get("dashscope_n", 1)),
+            seed=int(config.get("dashscope_seed", 0)),
             timeout=int(config.get("timeout", 120)),
         )
     elif provider == "seedream":
@@ -156,8 +207,9 @@ def create_backend(config: dict):
                 "https://ark.cn-beijing.volces.com/api/v3/images/generations",
             ),
             model=config.get("seedream_model", "doubao-seedream-4.0"),
-            size=config.get("seedream_size", "1024x1024"),
+            size=config.get("seedream_size", "2048x1152"),
             n=int(config.get("seedream_n", 1)),
+            seed=int(config.get("seedream_seed", 0)),
             timeout=int(config.get("timeout", 120)),
         )
     else:

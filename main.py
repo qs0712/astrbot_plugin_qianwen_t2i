@@ -1,7 +1,7 @@
 import re
 import tempfile
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 import aiohttp
 
@@ -10,7 +10,7 @@ from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.api.message_components import Image
 from astrbot.api.star import Context, Star, StarTools
 
-from .api_backends import create_backend
+from .api_backends import RATIO_MAP_DASHSCOPE, RATIO_MAP_SEEDREAM, create_backend
 
 
 EXPLICIT_KW = re.compile(
@@ -27,6 +27,10 @@ COMBINED_REGEX = (
     r"(?:.*(?:帮我画|(?:画|生成)一(?:个|张|幅)|来一?张|帮我生成).+)"
     r"|"
     r"(?:.+(?:绘制|生成|画)\s*$)"
+)
+
+RATIO_PATTERN = re.compile(
+    r"(?:[ 　，,。！!]|^)(?P<ratio>\d{1,2}:\d{1,2})(?:[ 　，,。！!]|$)",
 )
 
 
@@ -57,6 +61,21 @@ class Text2ImgPlugin(Star):
             if prompt.endswith(word):
                 return True
         return False
+
+    def _parse_ratio(self, prompt: str, provider: str) -> Tuple[str, Optional[str]]:
+        m = RATIO_PATTERN.search(prompt)
+        if not m:
+            return prompt, None
+
+        ratio_key = m.group("ratio")
+        ratio_map = RATIO_MAP_DASHSCOPE if provider == "dashscope" else RATIO_MAP_SEEDREAM
+        mapped_size = ratio_map.get(ratio_key)
+        if not mapped_size:
+            return prompt, None
+
+        cleaned = prompt[: m.start()] + prompt[m.end():]
+        cleaned = re.sub(r"\s{2,}", " ", cleaned).strip()
+        return cleaned, mapped_size
 
     async def _download_image(self, url: str, timeout: int = 60) -> Optional[Path]:
         try:
@@ -105,11 +124,17 @@ class Text2ImgPlugin(Star):
             )
             return
 
+        prompt, ratio_size = self._parse_ratio(prompt, provider)
+
         provider_label = "百炼" if provider == "dashscope" else "豆包 Seedream"
-        yield event.plain_result(f"🎨 正在通过{provider_label}生成图片，prompt: {prompt}")
+        info_parts = [f"🎨 正在通过{provider_label}生成图片"]
+        if ratio_size:
+            info_parts.append(f"，尺寸: {ratio_size}")
+        info_parts.append(f"，prompt: {prompt}")
+        yield event.plain_result("".join(info_parts))
 
         backend = create_backend(config)
-        success, result = await backend.generate(prompt)
+        success, result = await backend.generate(prompt, size=ratio_size)
 
         if not success:
             yield event.plain_result(f"❌ 图片生成失败：{result}")
