@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 import aiohttp
+import mcp
 
 from astrbot.api import logger
 from astrbot.api.event import AstrMessageEvent, filter
@@ -41,6 +42,15 @@ class Text2ImgPlugin(Star):
         self.data_dir = StarTools.get_data_dir("astrbot_plugin_qianwen_t2i")
         self.data_dir.mkdir(parents=True, exist_ok=True)
 
+    @staticmethod
+    def _llm_tool_text_result(message: str) -> mcp.types.CallToolResult:
+        text = str(message or "").strip()
+        if not text:
+            text = "The tool completed without additional details."
+        return mcp.types.CallToolResult(
+            content=[mcp.types.TextContent(type="text", text=text)]
+        )
+
     def _extract_prompt(self, message: str) -> str:
         m = EXPLICIT_KW.search(message)
         if m:
@@ -77,6 +87,17 @@ class Text2ImgPlugin(Star):
         cleaned = re.sub(r"\s{2,}", " ", cleaned).strip()
         return cleaned, mapped_size
 
+    def _get_provider(self) -> str:
+        return self.config.get("provider", "dashscope")
+
+    def _check_api_key(self) -> Optional[str]:
+        provider = self._get_provider()
+        if provider == "dashscope" and not self.config.get("dashscope_api_key"):
+            return "阿里云百炼 API Key 未配置，请在插件配置中设置 dashscope_api_key。"
+        if provider == "seedream" and not self.config.get("seedream_api_key"):
+            return "豆包 Seedream API Key 未配置，请在插件配置中设置 seedream_api_key。"
+        return None
+
     async def _download_image(self, url: str, timeout: int = 60) -> Optional[Path]:
         try:
             async with aiohttp.ClientSession(
@@ -103,6 +124,13 @@ class Text2ImgPlugin(Star):
             logger.error(f"下载图片失败: {e}")
             return None
 
+    async def _do_generate(self, prompt: str) -> Tuple[bool, Optional[str], Optional[str]]:
+        provider = self._get_provider()
+        prompt, ratio_size = self._parse_ratio(prompt, provider)
+        backend = create_backend(self.config)
+        success, result = await backend.generate(prompt, size=ratio_size)
+        return success, result, prompt
+
     @filter.regex(COMBINED_REGEX)
     async def on_draw_request(self, event: AstrMessageEvent):
         message = event.message_str.strip()
@@ -110,47 +138,69 @@ class Text2ImgPlugin(Star):
         if not prompt:
             return
 
-        config = self.config
-        provider = config.get("provider", "dashscope")
-
-        if provider == "dashscope" and not config.get("dashscope_api_key"):
-            yield event.plain_result(
-                "⚠️ 阿里云百炼 API Key 未配置，请在插件配置中设置 dashscope_api_key。"
-            )
-            return
-        if provider == "seedream" and not config.get("seedream_api_key"):
-            yield event.plain_result(
-                "⚠️ 豆包 Seedream API Key 未配置，请在插件配置中设置 seedream_api_key。"
-            )
+        key_error = self._check_api_key()
+        if key_error:
+            yield event.plain_result(f"⚠️ {key_error}")
             return
 
-        prompt, ratio_size = self._parse_ratio(prompt, provider)
+        provider_label = "百炼" if self._get_provider() == "dashscope" else "豆包 Seedream"
+        yield event.plain_result(f"🎨 正在通过{provider_label}生成图片，prompt: {prompt}")
 
-        provider_label = "百炼" if provider == "dashscope" else "豆包 Seedream"
-        info_parts = [f"🎨 正在通过{provider_label}生成图片"]
-        if ratio_size:
-            info_parts.append(f"，尺寸: {ratio_size}")
-        info_parts.append(f"，prompt: {prompt}")
-        yield event.plain_result("".join(info_parts))
-
-        backend = create_backend(config)
-        success, result = await backend.generate(prompt, size=ratio_size)
+        success, result, _ = await self._do_generate(prompt)
 
         if not success:
             yield event.plain_result(f"❌ 图片生成失败：{result}")
             return
 
         if result.startswith("data:image"):
-            yield event.plain_result("✅ 图片生成成功！正在发送...")
-            logger.info("图片生成成功 (Base64)")
-            yield event.plain_result("[已生成图片，但因平台限制无法直接以 Base64 格式发送]")
+            yield event.plain_result("✅ 图片生成成功，但因平台限制无法直接发送 Base64 图片")
             return
 
         local_path = await self._download_image(
-            result, timeout=int(config.get("timeout", 60))
+            result, timeout=int(self.config.get("timeout", 60))
         )
         if local_path:
             yield event.plain_result("✅ 图片生成成功，正在发送...")
             yield event.chain_result([Image.fromFileSystem(str(local_path))])
         else:
             yield event.plain_result(f"❌ 图片下载失败，请检查网络或直接访问：\n{result}")
+
+    @filter.llm_tool(name="draw_image")
+    async def draw_image(self, event: AstrMessageEvent, prompt: str):
+        """根据提示词生成图片。
+
+        Args:
+            prompt(string): 图片提示词，描述想要的图片内容（主体、场景、风格等）
+        """
+        prompt = (prompt or "").strip()
+        if not prompt:
+            return self._llm_tool_text_result("未提供图片描述，请提供 prompt 参数。")
+
+        key_error = self._check_api_key()
+        if key_error:
+            return self._llm_tool_text_result(key_error)
+
+        provider_label = "百炼" if self._get_provider() == "dashscope" else "豆包 Seedream"
+        await event.send(event.plain_result(f"🎨 正在通过{provider_label}生成图片，请稍候..."))
+
+        success, result, cleaned_prompt = await self._do_generate(prompt)
+        if not success:
+            return self._llm_tool_text_result(f"图片生成失败：{result}")
+
+        if result.startswith("data:image"):
+            return self._llm_tool_text_result(
+                f"图片已生成 (Base64 格式)，prompt: {cleaned_prompt}"
+            )
+
+        local_path = await self._download_image(
+            result, timeout=int(self.config.get("timeout", 60))
+        )
+        if local_path:
+            await event.send(event.chain_result([Image.fromFileSystem(str(local_path))]))
+            return self._llm_tool_text_result(
+                f"图片生成成功并已发送。prompt: {cleaned_prompt}"
+            )
+        else:
+            return self._llm_tool_text_result(
+                f"图片生成成功但下载失败，请检查网络。原始地址: {result}"
+            )
