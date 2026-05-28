@@ -15,7 +15,7 @@ from .api_backends import RATIO_MAP_DASHSCOPE, RATIO_MAP_SEEDREAM, create_backen
 
 
 EXPLICIT_KW = re.compile(
-    r"(?:帮我画|(?:画|生成)一(?:个|张|幅)|来一?张|帮我生成)\s*(?P<prompt>.+)"
+    r"(?:帮我画|帮我生成|帮我设计|来[一这]?张|(?:画|生成|设计)[一这]?[个只张幅条枚块份]?|出图)\s*(?P<prompt>.+)"
 )
 
 ENDING_KW = re.compile(r"^(.{2,}?)(绘制|生成|画)\s*$")
@@ -25,14 +25,12 @@ ENDING_BLACKLIST = frozenset(
 )
 
 COMBINED_REGEX = (
-    r"(?:.*(?:帮我画|(?:画|生成)一(?:个|张|幅)|来一?张|帮我生成).+)"
+    r"(?:.*(?:帮我画|帮我生成|帮我设计|来[一这]?张|(?:画|生成|设计)[一这]?[个只张幅条枚块份]?|出图).*)"
     r"|"
     r"(?:.+(?:绘制|生成|画)\s*$)"
 )
 
-RATIO_PATTERN = re.compile(
-    r"(?:[ 　，,。！!]|^)(?P<ratio>\d{1,2}:\d{1,2})(?:[ 　，,。！!]|$)",
-)
+RATIO_PATTERN = re.compile(r"(?<!\d)(?P<ratio>\d{1,2}:\d{1,2})(?!\d)")
 
 
 class Text2ImgPlugin(Star):
@@ -124,9 +122,10 @@ class Text2ImgPlugin(Star):
             logger.error(f"下载图片失败: {e}")
             return None
 
-    async def _do_generate(self, prompt: str) -> Tuple[bool, Optional[str], Optional[str]]:
-        provider = self._get_provider()
-        prompt, ratio_size = self._parse_ratio(prompt, provider)
+    async def _do_generate(self, prompt: str, ratio_size: Optional[str] = None) -> Tuple[bool, Optional[str], Optional[str]]:
+        if ratio_size is None:
+            provider = self._get_provider()
+            prompt, ratio_size = self._parse_ratio(prompt, provider)
         backend = create_backend(self.config)
         success, result = await backend.generate(prompt, size=ratio_size)
         return success, result, prompt
@@ -183,7 +182,13 @@ class Text2ImgPlugin(Star):
         provider_label = "百炼" if self._get_provider() == "dashscope" else "豆包 Seedream"
         await event.send(event.plain_result(f"🎨 正在通过{provider_label}生成图片，请稍候..."))
 
-        success, result, cleaned_prompt = await self._do_generate(prompt)
+        provider = self._get_provider()
+        cleaned, ratio_size = self._parse_ratio(prompt, provider)
+        if ratio_size is None:
+            orig = getattr(event, "message_str", "") or ""
+            _, ratio_size = self._parse_ratio(orig, provider)
+
+        success, result, cleaned_prompt = await self._do_generate(cleaned, ratio_size=ratio_size)
         if not success:
             return self._llm_tool_text_result(f"图片生成失败：{result}")
 
