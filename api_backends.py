@@ -1,5 +1,5 @@
 import json
-import random
+import os
 import re
 from typing import Optional, Tuple
 
@@ -67,7 +67,7 @@ class DashScopeBackend:
         if effective_seed is None:
             effective_seed = self.seed
         if effective_seed == 0:
-            effective_seed = random.randint(1, 2147483647)
+            effective_seed = int.from_bytes(os.urandom(4), 'big') % 2147483647 + 1
         if effective_seed:
             params["seed"] = effective_seed
 
@@ -167,7 +167,7 @@ class SeedreamBackend:
         if effective_seed is None:
             effective_seed = self.seed
         if effective_seed == 0:
-            effective_seed = random.randint(1, 2147483647)
+            effective_seed = int.from_bytes(os.urandom(4), 'big') % 2147483647 + 1
         if effective_seed:
             payload["seed"] = effective_seed
 
